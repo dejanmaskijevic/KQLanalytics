@@ -1,0 +1,48 @@
+let MaliciousDomains = dynamic([
+    "contatoplus.com",
+    "sarahmoftah.com",
+    "saramoftah.com",
+    "claude.update-version.com",
+    "update-version.com",
+    "claude-code-macos.com",
+    "myclauda.it.com",
+    "vdsafsaf.it.com"
+]);
+let LookalikeDomainPatterns = dynamic([
+    "claude-code",
+    "claudecode",
+    "claulastver",
+    "cladueall",
+    "notebooklm-version",
+    "notklm"
+]);
+union isfuzzy=true
+(
+    CommonSecurityLog
+    | where DestinationHostName has_any (MaliciousDomains)
+       or DestinationHostName has_any (LookalikeDomainPatterns)
+    | project
+        TimeGenerated,
+        DeviceName,
+        SourceIP,
+        DestinationHostName,
+        RequestURL,
+        Activity,
+        Source = "CommonSecurityLog"
+),
+(
+    DeviceNetworkEvents
+    | where RemoteUrl has_any (MaliciousDomains)
+       or RemoteUrl has_any (LookalikeDomainPatterns)
+       and RemoteUrl !contains "claudecode.jp"
+    | project
+        TimeGenerated,
+        DeviceName,
+        InitiatingProcessAccountName,
+        RemoteUrl,
+        RemoteIP,
+        RemotePort,
+        InitiatingProcessFileName,
+        Source = "DeviceNetworkEvents"
+)
+| extend RiskScore = iff(RemoteUrl has "update-version.com" or RemoteUrl has "contatoplus" or RemoteUrl has "saramoftah", 95, 75)
