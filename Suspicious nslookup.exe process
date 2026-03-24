@@ -1,0 +1,57 @@
+DeviceProcessEvents
+| where FileName =~ "nslookup.exe"
+| extend
+    ParentFileName = tolower(ProcessCommandLine),
+    CmdLine = tolower(ProcessCommandLine),
+    InitiatingParent = tolower(InitiatingProcessFileName)
+| where
+    InitiatingParent in~ (
+        "powershell.exe", "powershell_ise.exe", "pwsh.exe",
+        "cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe",
+        "rundll32.exe", "regsvr32.exe", "msbuild.exe",
+        "excel.exe", "winword.exe", "outlook.exe", "onenote.exe",
+        "wmic.exe", "svchost.exe", "taskeng.exe", "explorer.exe",
+        "python.exe", "pythonw.exe", "ruby.exe", "perl.exe",
+        "bash.exe", "wsl.exe", "java.exe"
+    )
+    // C2 beaconing
+    or ProcessCommandLine matches regex @"nslookup.*\.(tk|ml|ga|cf|gq|xyz|top|club|work|live|click|icu|online|site|pw|cc|ws|to)\b"
+    // Duge poddomene (DNS tunneling - e.g. DNScat, Iodine)
+    or ProcessCommandLine matches regex @"nslookup\s+[a-zA-Z0-9\-]{30,}\."
+    // Base64 patterni u domenama (DNS exfil)
+    or ProcessCommandLine matches regex @"nslookup\s+[a-zA-Z0-9+/=]{20,}\."
+    // Query internih resursa
+    or ProcessCommandLine matches regex @"nslookup.*(dc\d*|domaincontroller|ldap|kerberos|krbtgt|sharepoint|exchange|smtp|vpn|firewall|router|switch)\b"
+    // Pozivanje eksternih DNS resolvera
+    or ProcessCommandLine matches regex @"nslookup.*\s(8\.8\.8\.8|8\.8\.4\.4|1\.1\.1\.1|1\.0\.0\.1|9\.9\.9\.9|208\.67\.|94\.140\.|185\.228\.)"
+    // Interaktivni debug mode (koristi se da se izbjegne command-line logging)
+    or CmdLine matches regex @"nslookup\s*$"   // pokrenut bez argumenata (interactive)
+    or CmdLine has "-type=any"                  // wildcard record query
+    or CmdLine has "-type=txt"                  // TXT recordi
+    or CmdLine has "-type=mx"                   // MX recon
+    or CmdLine has "-type=ns"                   // NS recon
+    or CmdLine has "-type=soa"                  // SOA recon
+    or CmdLine has "type=axfr"                  // Zone transfer pokusaj
+    or CmdLine has "-norecurse"                 // Non-recursive = neuobicajeno
+    // Pokretanje iz neuobicajenih direktorija
+    or FolderPath matches regex @"(?i)(\\temp\\|\\tmp\\|\\appdata\\|\\public\\|\\programdata\\|\\users\\.*\\downloads\\|\\recycler\\|\\windows\\temp\\)"
+    // Ispis u fajl
+    or ProcessCommandLine matches regex @"nslookup.*>\s*[a-zA-Z]:\\"
+    or ProcessCommandLine matches regex @"nslookup.*>>\s*[a-zA-Z]:\\"
+    or ProcessCommandLine has_any (".txt", ".log", ".dat", ".out")
+    // Pretraga IP adresa (PTR/reverse DNS recon)
+    or ProcessCommandLine matches regex @"nslookup\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+| project
+    TimeGenerated,
+    DeviceName,
+    AccountName,
+    AccountDomain,
+    InitiatingProcessFileName,
+    InitiatingProcessCommandLine,
+    FileName,
+    ProcessCommandLine,
+    FolderPath,
+    ProcessId,
+    InitiatingProcessId,
+    ReportId,
+    DeviceId
