@@ -1,0 +1,15 @@
+DeviceProcessEvents
+| where ProcessCommandLine matches regex @"base64\s+-[dD]"
+    and ProcessCommandLine matches regex @"\|\s*(zsh|bash|sh)\b"
+    and ProcessCommandLine has "curl"
+| project
+    TimeGenerated,
+    DeviceName,
+    AccountName,
+    FileName,
+    ProcessCommandLine,
+    InitiatingProcessFileName,
+    InitiatingProcessCommandLine
+| extend
+    Base64Blob = extract(@"echo\s+'([A-Za-z0-9+/=]{20,})'", 1, ProcessCommandLine),
+    ObfuscationMethod = "base64-decode-pipe-shell"
