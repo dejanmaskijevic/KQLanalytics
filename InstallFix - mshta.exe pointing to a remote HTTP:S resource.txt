@@ -1,0 +1,13 @@
+DeviceProcessEvents
+| where InitiatingProcessFileName =~ "cmd.exe"
+| where FileName =~ "mshta.exe"
+| where ProcessCommandLine matches regex @"mshta\.exe\s+https?://"
+| project
+    TimeGenerated,
+    DeviceName,
+    AccountName,
+    InitiatingProcessFileName,
+    FileName,
+    ProcessCommandLine,
+    InitiatingProcessCommandLine
+| extend RemoteUrl = extract(@"(https?://\S+)", 1, ProcessCommandLine)
